@@ -24,7 +24,7 @@ public static class CubeHelper
     }
     
 
-    public static Vector3 cubeCenter(Vector3 bottomLeftBackCornerDronePos, float spacing)
+    public static Vector3 cubeCenter(Vector3 bottomLeftBackCornerDronePos, float spacing, float roll, float pitch, float yaw)
     {
         // defualt cube is 1 unit distance in all x, y, z, direction. 
         var leftX = (bottomLeftBackCornerDronePos.x - 0.5f) * spacing;
@@ -36,7 +36,8 @@ public static class CubeHelper
         var centerX = leftX + (rightX - leftX) * 0.5f;
         var centerY = downY + (upY - downY) * 0.5f;
         var centerZ = frontZ + (backZ - frontZ) * 0.5f;
-        return new Vector3(centerX, centerY, centerZ);
+        Vector3 originPos = new Vector3(centerX, centerY, centerZ);
+        return Utils.rotateCustom(originPos, roll, pitch, yaw);
     }
     
     /*
@@ -48,12 +49,15 @@ public static class CubeHelper
        Params: cubeCenter, scaling, 
      */
     public static void UpdateCornerPosAddCube(Vector3 cubeCenter, float scaling, ref Vector3 uprightfrontPos,
-        ref Vector3 upleftbackPos, ref Vector3 botCenterPos, ref Vector3 boxCenter)
+        ref Vector3 upleftbackPos, ref Vector3 botCenterPos, ref Vector3 boxCenter, float roll, float pitch, float yaw)
     {
         var distToEdge = scaling / 2.0f;
         Vector3 cubeUpRightFrontPos = new Vector3(cubeCenter.x + distToEdge, cubeCenter.y + distToEdge, cubeCenter.z + distToEdge);
         Vector3 cubeUpLeftBackPos = new Vector3(cubeCenter.x - distToEdge, cubeCenter.y + distToEdge, cubeCenter.z - distToEdge);
         Vector3 cubeBotCenterPos = new Vector3(cubeCenter.x, cubeCenter.y - distToEdge, cubeCenter.z);
+        // cubeUpRightFrontPos = Utils.rotateCustom(cubeUpRightFrontPos, roll, pitch, yaw);
+        // cubeUpLeftBackPos = Utils.rotateCustom(cubeUpLeftBackPos, roll, pitch, yaw);
+        // cubeBotCenterPos = Utils.rotateCustom(cubeBotCenterPos, roll, pitch, yaw);
         
         // update bottom y position
         if (cubeBotCenterPos.y < botCenterPos.y)

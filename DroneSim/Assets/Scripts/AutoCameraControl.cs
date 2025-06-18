@@ -52,9 +52,6 @@ public class AutoCameraController : MonoBehaviour, ICameraManager
     private float _newArcLength;
     private bool _getFirstArcLength = false;
     
-    // NEW STUFF
-    public CSVLogic csvLogic;
-    
     private void OnTargetChanged(Vector3 newTargetPosition)
     {
         isRotating = true;
@@ -267,7 +264,6 @@ public class AutoCameraController : MonoBehaviour, ICameraManager
         // camera always moves before any drone movements if not in secondary nmode (needs _camMovementPriority to determine the state)
         if (_camMovementPriority == false && _currCubeCommand == droneManager.GetCurrCubeCommand() && droneManager.GetCurrMode() != "secondary")
         {
-            Debug.Log("no move" + droneManager.GetCurrCubeCommand() + droneManager.GetCurrMode());
             return;
         }
         // rotation of camera to track box center
@@ -356,20 +352,22 @@ public class AutoCameraController : MonoBehaviour, ICameraManager
         // case when mode is add or sub
         else
         {
-            // string cubeLine = csvLogic.ReadChanges();
-            // string[] values = cubeLine.Split(',');
-            // // Debug.Log(values[0]);
-            // var x = float.Parse(values[1]);
-            // var y = float.Parse(values[2]);
-            // var z = float.Parse(values[3]);
-            // legacy code
-             string[] values = droneManager.GetCurrCubeCommand().Split(',');
+            string[] values = droneManager.GetCurrCubeCommand().Split(',');
             // Debug.Log(droneManager.GetCurrCubeCommand());
             var x = float.Parse(values[1]);
             var y = float.Parse(values[2]);
             var z = float.Parse(values[3]);
             var bottomLeftBackCornerDronePos = Utils.rotateYZ(new Vector3(x, y, z));
-            Vector3 newCubeCenter = CubeHelper.cubeCenter(bottomLeftBackCornerDronePos, droneManager.spacing);
+            // bottomLeftBackCornerDronePos = Utils.rotateCustom(bottomLeftBackCornerDronePos, droneManager.roll,
+            //     droneManager.pitch, droneManager.yaw);
+            // requires the cubeCenter without custom rotation to compare for closesPoint
+            // Vector3 unifromCubeCenter = CubeHelper.cubeCenter(bottomLeftBackCornerDronePos, droneManager.spacing, droneManager.roll, droneManager.pitch, droneManager.yaw);
+            // Tuple<float, float, float> rot = droneManager.GetCustomRotationAngle();
+            // bottomLeftBackCornerDronePos = Utils.rotateCustom(bottomLeftBackCornerDronePos, 
+            //                                                 rot.Item1, 
+            //                                                 rot.Item2, 
+            //                                                 rot.Item3);
+            Vector3 newCubeCenter = CubeHelper.cubeCenter(bottomLeftBackCornerDronePos, droneManager.spacing, droneManager.roll, droneManager.pitch, droneManager.yaw);
             var uniformCornerList = _UniformScaleCamPathCornerList(1f);
             int ind = Utils.FindClosestPoint(newCubeCenter, uniformCornerList); // returns the closest corner 
             _currLoopStartIndex = ind; // assign for later in run mode, as the loop index 

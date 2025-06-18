@@ -38,6 +38,7 @@ public static class Utils
         return closestInd;
     }
     
+    // swap y & z axis coordinates from streamingCSVs to unity coordinates
     public static Vector3 rotateYZ(Vector3 v)
     {  
         Matrix4x4 matrix = new Matrix4x4();
@@ -52,6 +53,13 @@ public static class Utils
         
         var newPos = matrix.MultiplyPoint(v);
         return newPos;
+    }
+    
+    // given roll pitch yaw in order (unit: degrees), return new position the given position will end up
+    public static Vector3 rotateCustom(Vector3 v, float roll, float pitch, float yaw)
+    {
+        Quaternion rot = Quaternion.Euler(roll, pitch, yaw);
+        return rot * v;
     }
     
 }

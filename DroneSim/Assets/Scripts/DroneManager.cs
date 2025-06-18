@@ -8,7 +8,6 @@ using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 
-
 // left in variable is negative x in Unity Coordinate System 
 // front in variable is positive z in Unity Coordinate System 
 // up in variable is positive y in Unity Coordinate System 
@@ -82,11 +81,9 @@ public class DroneManager : MonoBehaviour
     private bool _droneRotatePriority = false;
     public bool switchDroneFollow = false;
     
-    // NEW STUFF
-    public CSVLogic csvLogic;
-    private int _exitDroneId;
-    
-
+    public float roll = 0.0f;
+    public float pitch = 0.0f;
+    public float yaw = 0.0f;
     /**
      * parameter as -1 if getting droneInfo from the drone that just entered the simulation (i.e. pos(0, 0, 0)
      * parameter as 997 for the charging drone info
@@ -201,6 +198,11 @@ public class DroneManager : MonoBehaviour
         return _currCubeCommand;
     }
 
+    public Tuple<float, float, float> GetCustomRotationAngle()
+    {
+        return new Tuple<float, float, float>(roll, pitch, yaw);
+    }
+
     public bool GetDroneRotatePriority()
     {
         return _droneRotatePriority;
@@ -210,41 +212,23 @@ public class DroneManager : MonoBehaviour
     {
         return _isSimulating;
     }
-
+    
     void Start()
     {
         dronePrefab.GetComponentInChildren<MeshRenderer>().enabled = false; // don't render the foundational drone
-        chargingBlockPrefab.GetComponentInChildren<MeshRenderer>().enabled =
-            false; // don't render the foundational charging block\
+        chargingBlockPrefab.GetComponentInChildren<MeshRenderer>().enabled = false; // don't render the foundational charging block\
         defaultCubePrefab.GetComponentInChildren<MeshRenderer>().enabled = false; // don't render the foundational cube
-        invertCubePrefab.GetComponentInChildren<MeshRenderer>().enabled =
-            false; // don't render the foundational invert cube
+        invertCubePrefab.GetComponentInChildren<MeshRenderer>().enabled = false; // don't render the foundational invert cube
         
-        // NEW STUFF
-        csvLogic.FetchChangesCSV(); // does same stuff as _cubeCommandLines =
-        // CubeHelper.FetchCubeCsv(Path.Combine(Application.dataPath,
-        //     _cubeRenderFolderPath)); in Start()
-        _currCubeCommand = csvLogic.ReadChanges();
-        // Debug.Log(_currCubeCommand);
-        ///////// NEW STUFF ENDS // 
-        /*
-        // _cubeCommandLines =
-        //     CubeHelper.FetchCubeCsv(Path.Combine(Application.dataPath,
-        //         _cubeRenderFolderPath)); // stores all commands (run 2, , ), etc.
-        */
+        _cubeCommandLines = CubeHelper.FetchCubeCsv(Path.Combine(Application.dataPath, _cubeRenderFolderPath)); // stores all commands (run 2, , ), etc.
         cubeToggle.onValueChanged.AddListener(_updateCubeRender); // detect if user changes cube rendering setting
         UpdateCube(true); // default one cube rendering
         _updateCubeRender(cubeToggle.isOn); // initial load set the _cubeToggleState with initial value
         // set the desired location for charging drone to render charging block and died drones arrow
-        _chargedDroneStartPos = new Vector3(0.5f * spacing, -1.5f * spacing, -0.5f * spacing);
+        _chargedDroneStartPos = new Vector3(0.5f * spacing, -1.5f * spacing, -0.5f * spacing); 
         _chargedDroneFaceDirection = (Vector3.zero - _chargedDroneStartPos).normalized;
         _chargedDroneFaceDirection.y = 0.0f; // don't want rotation on y axis;
-        
-        // csvLogic = new CSVLogic();
-        
-        // NEW STUFF
         InitializeDrones(spacing);
-        Debug.Log("finish start");
     }
 
     void Update()
@@ -287,7 +271,7 @@ public class DroneManager : MonoBehaviour
             bool reachEnd = InterpolateToEndPosition();
             if (reachEnd && cameraManager.GetAutoCameraActive())
             {   
-                /*// Debug.Log(cameraManager.GetAutoCameraActive());
+                // Debug.Log(cameraManager.GetAutoCameraActive());
                 // reset _t for next CSV lerp
                 _lerpVal = 0.0f;
                 FetchCsv();
@@ -296,90 +280,14 @@ public class DroneManager : MonoBehaviour
                 // if (!_continueMode)
                 // {
                 //     _isSimulating = !_isSimulating;
-                // }*/
-                
-                
-                // Claire refactoring
-                /*
-                _lerpVal = 0.0f;
-                var result = csvLogic.UpdateStreaming();
-                _startDroneId = result.Item1;
-                _exitDroneId = result.Item2;
-                _droneInfo = csvLogic.ReadStreaming();
-                // assign the drained drone end position for interpolation to go to charging block
-                _droneInfo[_exitDroneId] = new Tuple<Vector3, string, Vector3, Vector3, string>(_droneInfo[_exitDroneId].Item1, _droneInfo[_exitDroneId].Item2,
-                    _droneInfo[_exitDroneId].Item3, _chargedDroneStartPos, _droneInfo[_exitDroneId].Item5); 
-                GenerateChargingDrones(); // for some reason, execute this before UpdateFrones() so 997 can exist
-                UpdateDrones();
-                // GenerateChargingDrones();
-                ResetChargingDrones();
-                // Debug.Log("the auto camera is active");
-                */
-                
-                _lerpVal = 0.0f;
-                var result = csvLogic.UpdateStreaming();
-                
-                // assign the drained drone end position for interpolation to go to charging block
-                _droneInfo = csvLogic.ReadStreaming();
-                // csvLogic has default -2 if no update for a new starting drone
-                if (result.Item1 != -2)
-                {
-                    _startDroneId = result.Item1;
-                }
-                // csvLogic has default -2 if no drone is exiting for this CSV
-                if (result.Item2 != -2)
-                {   
-                    // Debug.Log(_exitDroneId);
-                    _exitDroneId = result.Item2;
-                    _droneInfo[_exitDroneId] = new Tuple<Vector3, string, Vector3, Vector3, string>(_droneInfo[_exitDroneId].Item1, _droneInfo[_exitDroneId].Item2,
-                        _droneInfo[_exitDroneId].Item3, _chargedDroneStartPos, _droneInfo[_exitDroneId].Item5); 
-                }
-                
-                // get a key for the current mode
-                string mode = "run";
-                int i = 0;
-                Debug.Log(_droneInfo.Count);
-                foreach (var key in _droneInfo.Keys)
-                {
-                    if (i == 1)
-                    {
-                        break;
-                    }
-                    i++;
-                    mode = _droneInfo[key].Item5;
-                    Debug.Log("getting from _droneinfo: " + mode);
-                }
-                GenerateChargingDrones(); // add in the 997 and 998  // for some reason, execute this before UpdateFrones() so 997 can exist
-                UpdateDrones();
-                
-                // string _currCubeCommand = csvLogic.UpdateChanges();
-                // string[] values = _currCubeCommand.Split(',');
-                // string mode = values[0];
-                
-                if (_currMode == null || (mode != _currMode && mode != "secondary")) 
-                {
-                    Debug.Log("enter" + mode);
-                    UpdateCube();
-                    // Debug.Log("enter" + mode);
-                    _currMode = mode;
-                }
-                // Debug.Log(_currAllPossibleMode);
-                if (_currAllPossibleMode == null || mode != _currAllPossibleMode)
-                {   
-                    Debug.Log("change all possible mode to: " + mode);
-                    _currAllPossibleMode = mode;
-                    // Debug.Log(_currAllPossibleMode);
-                }
-                // GenerateChargingDrones(); // add in the 997 and 998
-                // _StoreDroneRotation(_trackDroneId);
-                ResetChargingDrones();
+                // }
             }
             
             else if (reachEnd && !cameraManager.GetAutoCameraActive())
             {
-                /*// reset _t for next CSV lerp
+                // reset _t for next CSV lerp
                 _lerpVal = 0.0f;
-                FetchCsv(); // updateDrones() --> GenerateCharging
+                FetchCsv();
                 
                 // GameObject drone = GetDroneObject(_startDroneId).Item2;
                 // cameraManager.FollowDrone(drone);
@@ -389,63 +297,7 @@ public class DroneManager : MonoBehaviour
                 // if (!_continueMode)
                 // {
                 //     _isSimulating = !_isSimulating;
-                // }*/
-                
-                _lerpVal = 0.0f;
-                var result = csvLogic.UpdateStreaming();
-                
-                // assign the drained drone end position for interpolation to go to charging block
-                _droneInfo = csvLogic.ReadStreaming();
-                // csvLogic has default -2 if no update for a new starting drone
-                if (result.Item1 != -2)
-                {
-                    _startDroneId = result.Item1;
-                }
-                // csvLogic has default -2 if no drone is exiting for this CSV
-                if (result.Item2 != -2)
-                {   
-                    Debug.Log(_exitDroneId);
-                    _exitDroneId = result.Item2;
-                    _droneInfo[_exitDroneId] = new Tuple<Vector3, string, Vector3, Vector3, string>(_droneInfo[_exitDroneId].Item1, _droneInfo[_exitDroneId].Item2,
-                        _droneInfo[_exitDroneId].Item3, _chargedDroneStartPos, _droneInfo[_exitDroneId].Item5); 
-                }
-                
-                // get a key for the current mode
-                string mode = "run";
-                int i = 0;
-                foreach (var key in _droneInfo.Keys)
-                {
-                    if (i == 1)
-                    {
-                        break;
-                    }
-                    i++;
-                    mode = _droneInfo[key].Item5;
-                }
-                GenerateChargingDrones(); // add in the 997 and 998  // for some reason, execute this before UpdateFrones() so 997 can exist
-                UpdateDrones();
-                
-                // string _currCubeCommand = csvLogic.UpdateChanges();
-                // string[] values = _currCubeCommand.Split(',');
-                // string mode = values[0];
-                
-                if (_currMode == null || (mode != _currMode && mode != "secondary")) 
-                {
-                    UpdateCube();
-                    
-                    _currMode = mode;
-                }
-
-                if (_currAllPossibleMode == null || mode != _currAllPossibleMode)
-                {   
-                    _currAllPossibleMode = mode;
-                    // Debug.Log(_currAllPossibleMode);
-                }
-                // GenerateChargingDrones(); // add in the 997 and 998
-                _StoreDroneRotation(_trackDroneId);
-                ResetChargingDrones();
-
-                // Debug.Log("the auto camera is not active");
+                // }
             }
             // interpolate drones from start to end position
         }
@@ -453,8 +305,6 @@ public class DroneManager : MonoBehaviour
     
     public void InitializeDrones(float setSpacing)
     {
-        
-        /*
         // scaling the space between drones
         spacing = setSpacing;
 
@@ -462,62 +312,9 @@ public class DroneManager : MonoBehaviour
         // StartCoroutine(PlayFrames());
         FetchCsv();
         MakeChargingBlock();
-        */
-        spacing = setSpacing;
-        _droneInfo = new Dictionary<int, Tuple<Vector3, string, Vector3, Vector3, string>>(csvLogic.FetchStreaming());
-        // Debug.Log(_droneInfo.Count);
-        
-        
-        // NEW STUFF STARTS
-        _droneInfo = csvLogic.ReadStreaming();
-        // // csvLogic has default -2 if no update for a new starting drone
-        // if (result.Item1 != -2)
-        // {
-        //     _startDroneId = result.Item1;
-        // }
-        // // csvLogic has default -2 if no drone is exiting for this CSV
-        // if (result.Item2 != -2)
-        // {   
-        //     Debug.Log(_exitDroneId);
-        //     _exitDroneId = result.Item2;
-        //     _droneInfo[_exitDroneId] = new Tuple<Vector3, string, Vector3, Vector3, string>(_droneInfo[_exitDroneId].Item1, _droneInfo[_exitDroneId].Item2,
-        //         _droneInfo[_exitDroneId].Item3, _chargedDroneStartPos, _droneInfo[_exitDroneId].Item5); 
-        // }
-        
-        // get a key for the current mode
-        string mode = "run";
-        // int i = 0;
-        // foreach (var key in _droneInfo.Keys)
-        // {
-        //     if (i == 1)
-        //     {
-        //         break;
-        //     }
-        //     i++;
-        //     mode = _droneInfo[key].Item5;
-        // }
-        
-        if (_currMode == null || (mode != _currMode && mode != "secondary")) 
-        {
-            UpdateCube();
-            Debug.Log("enter" + mode);
-            _currMode = mode;
-        }
-        // Debug.Log(_currAllPossibleMode);
-        if (_currAllPossibleMode == null || mode != _currAllPossibleMode)
-        {   
-            _currAllPossibleMode = mode;
-            // Debug.Log(_currAllPossibleMode);
-        }
-        /// NEW STUFF END ///
-        GenerateChargingDrones();
-        UpdateDrones();
-        MakeChargingBlock();
-        
     }
-
-    /*
-    // handle the end and start droneId 
+    
+    
     void FetchCsv()
     {
       
@@ -536,9 +333,7 @@ public class DroneManager : MonoBehaviour
         }
         _currentFrame++;
     }
-    */
 
-    /*
     void ReadCSV(string filePath)
     {
         // recalculate the dictionary for CSV data
@@ -560,6 +355,7 @@ public class DroneManager : MonoBehaviour
             string color = values[4];
 
             Vector3 curr_pos = Utils.rotateYZ(new Vector3(x, y, z));
+            curr_pos = Utils.rotateCustom(curr_pos, roll, pitch, yaw);
             if (curr_pos == Vector3.zero)
             {
                 _startDroneId = droneId; // keep track of start drone 
@@ -589,6 +385,7 @@ public class DroneManager : MonoBehaviour
                 mode = values[11];
 
                 Vector3 start_pos = Utils.rotateYZ(new Vector3(start_x, start_y, start_z));
+                start_pos = Utils.rotateCustom(start_pos, roll, pitch, yaw);
                 Vector3 end_pos;
                 // the condition indicates dying drone exiting the cube
                 if (float.Parse(values[10]) == -1.0f)
@@ -601,6 +398,7 @@ public class DroneManager : MonoBehaviour
                 else
                 {
                     end_pos = Utils.rotateYZ(new Vector3(end_x, end_y, end_z));
+                    end_pos = Utils.rotateCustom(end_pos, roll, pitch, yaw);
                 }
 
                 _droneInfo.Add(droneId, new Tuple<Vector3, string, Vector3, Vector3, string>
@@ -637,8 +435,9 @@ public class DroneManager : MonoBehaviour
         //     UpdateCube();
         //     _currMode = mode;
         // }
-        if (_currMode == null || (mode != _currMode && mode != "secondary")) 
+        if (_currMode == null || (mode != _currMode && mode != "secondary"))
         {
+            Debug.Log("enter" + mode);
             UpdateCube();
             _currMode = mode;
         }
@@ -650,7 +449,6 @@ public class DroneManager : MonoBehaviour
         }
         GenerateChargingDrones(); // add in the 997 and 998 
     }
-    */
 
     void UpdateDrones()
     {   
@@ -662,6 +460,7 @@ public class DroneManager : MonoBehaviour
         foreach (var kvp in _droneInfo)
         {   
             int droneId = kvp.Key;
+            
             // retrieve data
             Vector3 position = kvp.Value.Item1;
             Vector3 startPos = kvp.Value.Item3;
@@ -682,11 +481,7 @@ public class DroneManager : MonoBehaviour
                                                                 myDrawingColor.A / 255f);
             
             if (!_drones.ContainsKey(droneId))
-            {   
-                if (droneId == 997)
-                {
-                    // Debug.Log("making 997 drone");
-                }
+            {
                 // Create new drone if it doesn't exist
                 GameObject newDrone = Instantiate(dronePrefab, position, Quaternion.identity);
                 // make it visible on scene
@@ -699,19 +494,9 @@ public class DroneManager : MonoBehaviour
                 allDronesID.Remove(droneId);
                 // make an arrow associated to the drone
                 CreateNewArrow(droneId, startPos, endPos, color);
-                // if (droneId == 999)
-                // {
-                //     Debug.Log("instantiating 999 drone in _drones");
-                // }
-                // Debug.Log("if the droneId is not in _drones: ");
-                // Debug.Log(droneId);
             }
             else
             {
-                if (droneId == 997)
-                {
-                    // Debug.Log("we only update not destroying");
-                }
                 // Move existing drone
                 _drones[droneId].transform.position = position;
                 // update color
@@ -724,7 +509,6 @@ public class DroneManager : MonoBehaviour
 
             // destroy drained drone
             if (droneId == 999 && _drones.ContainsKey(droneId)){
-                // Debug.Log("destoying drone999 in _drones");
                 // delete game object
                 Destroy(_drones[droneId]);
                 // delete kvp
@@ -739,10 +523,6 @@ public class DroneManager : MonoBehaviour
         {
             // delete game object
             Destroy(_drones[drone_id]);
-            if (drone_id == 997)
-            {
-                // Debug.Log(" you are destroying 997");
-            }
             // delete kvp
             _drones.Remove(drone_id);
             
@@ -753,7 +533,6 @@ public class DroneManager : MonoBehaviour
         // take drone 999 out of dictionary keeping info for updating drone
         if (drone999)
         {
-            // Debug.Log("removed 999 drone from _droneinfo");
             _droneInfo.Remove(999);
         }
     }
@@ -777,21 +556,12 @@ public class DroneManager : MonoBehaviour
         foreach (var kvp in _droneInfo)
         {   
             int droneId = kvp.Key;
-            if (droneId == 999)
-            {
-                // Debug.Log("drone 999 still in _droneInfo");
-            }
             Vector3 startPos = _droneInfo[droneId].Item3;
             Vector3 endPos = kvp.Value.Item4;
             // if end position is charged Drone start position from csv, it's exiting simulation (base on ReadCsv update already changed the exiting drone to the
             // charged drone start position
             if (endPos == _chargedDroneStartPos)
             {  
-                // CHANGE -- moved the _exitDroneFaceDirection to here.
-                _exitDroneFaceDirection = (endPos - startPos).normalized;
-                _exitDroneFaceDirection.y = 0.0f;
-                
-                
                 // rotate the drone exiting to end up facing the direction like charging drone faces
                 Quaternion exitDroneRotation = Quaternion.LookRotation(_exitDroneFaceDirection);
                 Quaternion chargingDroneRotation = Quaternion.LookRotation(_chargedDroneFaceDirection);
@@ -860,7 +630,6 @@ public class DroneManager : MonoBehaviour
 
     void GenerateChargingDrones()
     {
-        // Debug.Log("does this function ever get called??");
         bool update;
         if (_droneInfo[_startDroneId].Item3 == _droneInfo[_startDroneId].Item4)
         {
@@ -882,7 +651,6 @@ public class DroneManager : MonoBehaviour
         // if (GameObject.Find("Drone_998") == null && GameObject.Find("Drone_997") == null)
         if (GameObject.Find("Drone_997") == null)
         {
-            // Debug.Log("no 997 drone");
             _MakeNewDrone(997, "Orange", startPos997);
             // _MakeNewDrone(998, "Red", startPos998);
             CreateNewArrow(997, startPos997, endPos997, "Orange");
@@ -893,7 +661,6 @@ public class DroneManager : MonoBehaviour
         {
             if (update)
             {
-                Debug.Log("add 997 into _droneInfo");
                 // _droneInfo.Add(998, new Tuple<Vector3, string, Vector3, Vector3, string>
                 //     (startPos998, "Red", startPos998, endPos998, "run"));
                 _droneInfo.Add(997, new Tuple<Vector3, string, Vector3, Vector3, string>
@@ -901,7 +668,6 @@ public class DroneManager : MonoBehaviour
             }
             else
             {
-                // Debug.Log("made it here else case!");
                 // _droneInfo.Add(998, new Tuple<Vector3, string, Vector3, Vector3, string>
                 //     (startPos998, "Red", startPos998, startPos998, "run"));
                 _droneInfo.Add(997, new Tuple<Vector3, string, Vector3, Vector3, string>
@@ -923,44 +689,36 @@ public class DroneManager : MonoBehaviour
      * update cube logic 
      */
     void UpdateCube(bool baseCube=false)
-    {   
-        /*if (_cubeCommandLines == null)
+    {
+        if (_cubeCommandLines == null)
         {
             return;
-        }*/
-        
+        }
         // render for the original first eight drone's cube
         if (baseCube)
         {
-            GameObject newCube = Instantiate(defaultCubePrefab, CubeHelper.cubeCenter(Vector3.zero, spacing), Quaternion.identity);
+            GameObject newCube = Instantiate(defaultCubePrefab, CubeHelper.cubeCenter(Vector3.zero, spacing, roll, pitch, yaw), Quaternion.Euler(roll, pitch, yaw));
             newCube.GetComponentInChildren<MeshRenderer>().enabled = true; // render with intial load, toggle event can't detect
             newCube.name = "Cube_0_0_0";
             newCube.transform.localScale = new Vector3(2 * spacing, 2 * spacing, 2 * spacing); // spacing is for drone, and cube is 2 times the size of drone distance
             _cubes.Add(newCube);
-            CubeHelper.UpdateCornerPosAddCube(CubeHelper.cubeCenter(Vector3.zero, spacing), 
+            CubeHelper.UpdateCornerPosAddCube(CubeHelper.cubeCenter(Vector3.zero, spacing, roll, pitch, yaw), 
                                         2 * spacing, 
                                             ref _uprightfrontPos, 
                                             ref _upleftbackPos,
                                             ref _botcenterPos,
-                                            ref _boxCenter);
+                                            ref _boxCenter,
+                                            roll,
+                                            pitch,
+                                            yaw);
             return;
         }
-        
-        /*
         string cubeLine = _cubeCommandLines[0];
         _currCubeCommand = cubeLine; // attach the current command line for camera to use
         _cubeCommandLines.RemoveAt(0);
         string[] values = cubeLine.Split(',');
         string mode = values[0];
         // the cube commands (i.e. sub, 2, 0, 0, etc. only longer than four elements if x, y are added and x, z or y, z, specifying the plane to cut out)
-        */
-
-        _currCubeCommand = csvLogic.ReadChanges(); // same thing as string cubeLine = _cubeCommandLines[0];
-        csvLogic.UpdateChanges(); // same thing as _cubeCommandLines.RemoveAt(0)
-        string[] values = _currCubeCommand.Split(',');
-        string mode = values[0];
-        
-        
         bool camPlaneDeduct;
         if (values.Length > 4)
         {
@@ -977,15 +735,17 @@ public class DroneManager : MonoBehaviour
             var y = float.Parse(values[2]);
             var z = float.Parse(values[3]);
             var bottomLeftBackCornerDronePos = Utils.rotateYZ(new Vector3(x, y, z));
+            // don't rotate for bottomLeftBackCornerDronePos since handled in cubeCenter
+            // bottomLeftBackCornerDronePos = Utils.rotateCustom(bottomLeftBackCornerDronePos, roll, pitch, yaw);
             GameObject newCube;
             // switch between two different cube prefabs to optimize efficiency (rather than changing material of the prefab)
             if (CubeHelper.DefaultSaddleCube(x, z, y))
             {
-                newCube = Instantiate(defaultCubePrefab, CubeHelper.cubeCenter(bottomLeftBackCornerDronePos, spacing), Quaternion.identity);
+                newCube = Instantiate(defaultCubePrefab, CubeHelper.cubeCenter(bottomLeftBackCornerDronePos, spacing,  roll, pitch, yaw), Quaternion.Euler(roll, pitch, yaw));
             }
             else
             {
-                newCube = Instantiate(invertCubePrefab, CubeHelper.cubeCenter(bottomLeftBackCornerDronePos, spacing), Quaternion.identity);
+                newCube = Instantiate(invertCubePrefab, CubeHelper.cubeCenter(bottomLeftBackCornerDronePos, spacing,  roll, pitch, yaw), Quaternion.Euler(roll, pitch, yaw));
             }
             // GameObject newCube = Instantiate(defaultCubePrefab, CubeHelper.cubeCenter(new Vector3(x, y, z), spacing), Quaternion.identity);
             newCube.GetComponentInChildren<MeshRenderer>().enabled = _cubeToggleState;
@@ -993,12 +753,15 @@ public class DroneManager : MonoBehaviour
             newCube.transform.localScale = new Vector3(2 * spacing, 2 * spacing, 2 * spacing); // spacing is for drone, and cube is 2 times the size of drone distance
             _cubes.Add(newCube);
             // update cube corners for camera to use
-            CubeHelper.UpdateCornerPosAddCube(CubeHelper.cubeCenter(bottomLeftBackCornerDronePos, spacing), 
+            CubeHelper.UpdateCornerPosAddCube(CubeHelper.cubeCenter(bottomLeftBackCornerDronePos, spacing,  roll, pitch, yaw), 
                                         2 * spacing, 
                                         ref _uprightfrontPos,
                                         ref _upleftbackPos,
                                         ref _botcenterPos,
-                                        ref _boxCenter);
+                                        ref _boxCenter,
+                                        roll,
+                                        pitch,
+                                        yaw);
             
         }
         else if (mode == "sub") 

@@ -37,7 +37,6 @@ public class DroneCameraController : MonoBehaviour, ICameraManager
     // Start is called before the first frame update
     void Start()
     {
-        // Debug.Log(droneManager.GetDroneInfo(997));
         _currDroneInfo = droneManager.GetDroneInfo(997);
         // starts from the charged drone so only update this once
         
