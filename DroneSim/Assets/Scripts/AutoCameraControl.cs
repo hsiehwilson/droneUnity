@@ -8,6 +8,7 @@ using UnityEngine.Serialization;
 public class AutoCameraController : MonoBehaviour, ICameraManager
 {
     public DroneManager droneManager;
+    public bool fixedCameraMode = false;
     public float rotationSpeed = 80f;  // Rotation speed
     public float moveSpeed = 20f;        // Movement speed
     public float rotationSmoothTime = 0.1f; // Smoothing time for rotation
@@ -98,6 +99,16 @@ public class AutoCameraController : MonoBehaviour, ICameraManager
         // Reset();
         // HandleRotation();
         // HandleMovement();
+        if (fixedCameraMode)
+
+        {
+
+            _camMovementPriority = false;
+
+            return;
+
+        }
+        
         if (_currBoxCenter != droneManager.GetBoxCenterPos())
         {
             OnTargetChanged(droneManager.GetBoxCenterPos());
